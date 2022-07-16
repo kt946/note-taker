@@ -1,8 +1,8 @@
-// import express, fs, and db.json as notes
+// import express, fs, path, uuid package to generate id for notes
 const express = require('express');
-const notes = require("./db/db.json");
 const fs = require('fs');
 const path = require('path');
+const { v4: uuidv4 } = require('uuid');
 
 // port for Heroku and default
 const PORT = process.env.PORT || 3001;
@@ -31,14 +31,14 @@ function createNewNote(body, notesArray) {
 // function to filter notes array by id
 function filterById(id, notesArray) {
     console.log(`Deleting id: ${id}`);
-    // Parse JSON string and filter array to exclude parameter id
+    // parse JSON string into a JavaScript object and filter array to exclude parameter id
     const result = JSON.parse(notesArray).filter(note => note.id !== id);
     return result;
 }
 
 // function to delete notes
 function deleteNote(req) {
-    // read file for existing array of notes
+    // read file for current array of notes
     fs.readFile(path.join(__dirname, './db/db.json'), 'utf8', (err, data) => {
         if (err) throw err;
 
@@ -61,31 +61,45 @@ function deleteNote(req) {
 
 // static route for notes.html
 app.get('/notes', (req, res) => {
-    res.sendFile(__dirname + '/public/notes.html');
+    res.sendFile(path.join(__dirname, '/public/notes.html'));
 });
 
 // static route for db.json and return saved notes
-app.get('/api/notes', (req, res) => res.json(notes));
+app.get('/api/notes', (req, res) => {
+    // read file for current array of notes
+    fs.readFile(path.join(__dirname, './db/db.json'), 'utf8', (err, data) => {
+        if (err) throw err;
+    
+        // parse JSON string into a JavaScript object
+        res.json(JSON.parse(data));
+    });
+});
 
 // static route for index.html, * should always come last
 app.get('*', (req, res) => {
-    res.sendFile(__dirname + '/public/index.html');
+    res.sendFile(path.join(__dirname, '/public/index.html'));
 });
 
 // route for POST requests to notes
 app.post('/api/notes', (req, res) => {
-    // create new id based on next index in array
-    req.body.id = notes.length.toString();
+    // create new id using uuid package
+    req.body.id = uuidv4();
 
-    // add new note to db.json
-    const newNote = createNewNote(req.body, notes);
+    // read file for current array of notes
+    fs.readFile(path.join(__dirname, './db/db.json'), 'utf8', (err, data) => {
+        if (err) throw err;
     
-    // return new note
-    res.json(newNote);
+        // add new note to db.json and parse data
+        const newNote = createNewNote(req.body, JSON.parse(data));
+
+        console.info('Successfully added note!');
+        res.json(newNote);
+    });
 });
 
 // route for DELETE requests to notes
 app.delete('/api/notes/:id', (req, res) => {
+    // send req data to delete function
     const newNoteArray = deleteNote(req);
 
     res.json(newNoteArray);
